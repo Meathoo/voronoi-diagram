@@ -62,7 +62,8 @@ def merge(pointsL : list, pointsR : list, linesL, linesR, canvas):
     # 若一邊畫hyperplane一邊消中垂的話需要找到下個hyperplane的終點，目前找不到方法可以判斷下個走向，特別是hyperplane直角轉彎的時候，應該沒有甚麼方法(選轉角度相同，距離相同)
 
     print("上切線：",lp,rp,"\n下切線：",llp,lrp)
-    while 1:
+    # while 1:
+    for _ in range(10):
         print("切線: ",lp,rp)
         hyperplaneline = Line(lp,rp,isHyper=True)
         history_hyperplane.append(hyperplaneline)
@@ -222,19 +223,23 @@ def has_duplicates(points):
 def getIntersections(line1 : Line, lines: list[Line], history_linesIdx, history_intersection):
     p1, m1= line1.center, line1.verticalSlope
     pairs = []
-    thres = 0.000000001
     for i, line in enumerate(lines):
-        tooClose = 0
         p2, m2 = line.center, line.verticalSlope
         x, y = getIntersection(p1,m1,p2,m2)
-        # for (hx,hy) in history_intersection:
-        #     if abs(x-hx)<thres and abs(y-hy)<thres:
-        #         print("太靠近先前交點")
-        #         tooClose = 1
-        #         break
-        if i in history_linesIdx: #已處理過交點
-            print("處理過的線")
+        
+        if len(history_intersection)>0 and y < history_intersection[-1][1]: # hyperplane 是一路往下
+            print("在前交點上方")
             continue
+
+        if i in history_linesIdx:
+            print("處理過的線")
+            if isSamePoint((x,y), history_intersection[-1]):
+                print("剛處理過的點，去除")
+                continue
+            
+        # if i in history_linesIdx:
+        #     print("處理過的線和點")
+        #     continue
         if (x,y) == (float('inf'),float('inf')):
             print("平行無交點")
             continue
@@ -251,6 +256,14 @@ def getIntersection(p1, m1, p2, m2):
     x = (m1 * p1[0] - m2 * p2[0] + p2[1] - p1[1]) / (m1 - m2)
     y = m1 * (x - p1[0]) + p1[1]
     return (x, y)
+
+def isSamePoint(p1,p2):
+    thres = 0.1
+    x1,y1,x2,y2 = p1[0],p1[1],p2[0],p2[1]
+    if abs(x1-x2)<thres and abs(y1-y2)<thres:
+        print("太靠近先前交點")
+        return 1
+    return 0
 
 def on_segment(p, seg):
     (x, y) = p
@@ -278,17 +291,14 @@ def reviseHyperLine(line, history_intersection):
     return
 
 def reviseCanvasLine(line, hyper1point_upper, intersection, hyper2point_lower):
-    if line.circumcenter != None:
-        line.canvasLine = [intersection, line.circumcenter]
-    else:
-        # 若hyperplane轉向 與 向邊界點轉向相同 則該方向須去除(改成交點與另一側邊界連線)
-        cross_hyper = isClockwise(hyper1point_upper, intersection, hyper2point_lower) # v1(upper point to intersection), v2(intersection to lower point)
-        cross_upper_border1 = isClockwise(hyper1point_upper,intersection,line.canvasLine[0])
-        cross_upper_border2 = isClockwise(hyper1point_upper,intersection,line.canvasLine[1])
-        print("H1->H2方向:",cross_hyper)
-        print(f"H1->{line.canvasLine[0]}方向:", cross_upper_border1)
-        print(f"H1->{line.canvasLine[1]}方向:", cross_upper_border2)
-        if cross_hyper == cross_upper_border1:
-            line.canvasLine = sorted([intersection, line.canvasLine[1]], key=lambda p: p[1])
-        elif cross_hyper == cross_upper_border2:
-            line.canvasLine = sorted([intersection, line.canvasLine[0]], key=lambda p: p[1])
+    # 若hyperplane轉向 與 向邊界點轉向相同 則該方向須去除(改成交點與另一側邊界連線)
+    cross_hyper = isClockwise(hyper1point_upper, intersection, hyper2point_lower) # v1(upper point to intersection), v2(intersection to lower point)
+    cross_upper_border1 = isClockwise(hyper1point_upper,intersection,line.canvasLine[0])
+    cross_upper_border2 = isClockwise(hyper1point_upper,intersection,line.canvasLine[1])
+    print("H1->H2方向:",cross_hyper)
+    print(f"H1->{line.canvasLine[0]}方向:", cross_upper_border1)
+    print(f"H1->{line.canvasLine[1]}方向:", cross_upper_border2)
+    if cross_hyper == cross_upper_border1:
+        line.canvasLine = sorted([intersection, line.canvasLine[1]], key=lambda p: p[1])
+    elif cross_hyper == cross_upper_border2:
+        line.canvasLine = sorted([intersection, line.canvasLine[0]], key=lambda p: p[1])
