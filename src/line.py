@@ -1,11 +1,9 @@
 import math
 
 class Line:
-    def __init__(self, p1, p2, circumcenter=None, isHyper=None):
+    def __init__(self, p1, p2, circumcenter=None, isHyper=False):
         self.p1 = p1
         self.p2 = p2
-        self.isHyper = isHyper
-        self.circumcenter = circumcenter
         self.points = [p1, p2]
         self.center = ((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2)
         sort_counterclockwise(self.points, self.center)
@@ -21,6 +19,10 @@ class Line:
         self.vertiVectors = rotate_right_90(self.vector)
 
         self.canvasLine = self.findRay2Points()  #  #self.find_border_points()  # [(x,y),(x,y)]
+
+        self.isHyper = isHyper
+        self.hasCut = False 
+        self.circumcenter = circumcenter
 
     def cal_slope(self):
         if self.p1[0] == self.p2[0]:  # vertical line

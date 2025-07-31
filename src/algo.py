@@ -58,12 +58,10 @@ def merge(pointsL : list, pointsR : list, linesL, linesR, canvas):
     LowerTengentLine = Line(llp,lrp, isHyper=1)
 
     # 有時不處理下切線會正確，但有時必須處理，而多處理下切線也不會造成錯誤，如講義範例
-
     # 若一邊畫hyperplane一邊消中垂的話需要找到下個hyperplane的終點，目前找不到方法可以判斷下個走向，特別是hyperplane直角轉彎的時候，應該沒有甚麼方法(選轉角度相同，距離相同)
 
     print("上切線：",lp,rp,"\n下切線：",llp,lrp)
-    # while 1:
-    for _ in range(10):
+    while 1:
         print("切線: ",lp,rp)
         hyperplaneline = Line(lp,rp,isHyper=True)
         history_hyperplane.append(hyperplaneline)
@@ -101,20 +99,32 @@ def merge(pointsL : list, pointsR : list, linesL, linesR, canvas):
         reviseHyperLine(hyperplaneline, history_intersection) # revise hyperplane
         hyperplane_result.append(hyperplaneline)
         history_lines.append(copy.deepcopy(lines)+copy.deepcopy(hyperplane_result)) # add the line to history
-    
+        # draw_lines(lines+hyperplane_result, canvas) # 畫出hyperplane
     # 消線
     i = 0 # hyper id
     print("length lines :", len(lines),", length history_hyperplane :", len(history_linesIdx))
     for idx in history_linesIdx:
-        if i+1 >= len(history_hyperplane) :
-            history_lines.append(copy.deepcopy(lines)+copy.deepcopy(hyperplane_result))
-            break
+        # if i+1 >= len(history_hyperplane) :
+        #     print("MAMBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+        #     
+        #     history_lines.append(copy.deepcopy(lines)+copy.deepcopy(hyperplane_result))
+        #     break
         print("兩點",lines[idx].points,"的中垂線\ni =",i)
         print("hyper1起點:",history_hyperplane[i].canvasLine[0],", hyper2終點:",history_hyperplane[i+1].canvasLine[1])
         reviseCanvasLine(lines[idx], history_hyperplane[i].canvasLine[0], history_intersection[i],  history_hyperplane[i+1].canvasLine[1])
         history_lines.append(copy.deepcopy(lines)+copy.deepcopy(hyperplane_result))
         i+=1
-    return hyperplane_result + lines
+
+    # not sure ----------------------------------------------------------------------------
+    # for i, line in enumerate(lines):
+    #     print("兩點",line.points,"line.hasCut",line.hasCut,"line.isHyper",line.isHyper)
+    #     if (line.hasCut == False) and (line.isHyper == False):
+    #         print("Someone got POP")
+    #         lines.pop(i) 
+        # line.isHyper = False  # not sure ----------------------------------------------------------------------------
+    # history_lines.append(copy.deepcopy(lines)+ copy.deepcopy(hyperplane_result)) 
+
+    return lines + hyperplane_result
 
 
 def findTangent(pointsL : list, pointsR : list, isUpper = 1):
@@ -302,3 +312,5 @@ def reviseCanvasLine(line, hyper1point_upper, intersection, hyper2point_lower):
         line.canvasLine = sorted([intersection, line.canvasLine[1]], key=lambda p: p[1])
     elif cross_hyper == cross_upper_border2:
         line.canvasLine = sorted([intersection, line.canvasLine[0]], key=lambda p: p[1])
+    line.hasCut = True
+    return

@@ -36,23 +36,27 @@ class Voronoi:
         self.canvas.pack()
 
         # clear button
-        self.clear_button = tk.Button(self.root, text="Clear", command=self.clear_canvas)
+        self.clear_button = tk.Button(self.root, text="Clear", font=("consolas"), command=self.clear_canvas)
         self.clear_button.pack(side='left', padx=3, pady=3)
 
         # read data button
-        self.read_data_button = tk.Button(self.root, text="Read Data", command = self.read_data)
+        self.read_data_button = tk.Button(self.root, text="Read Data", font=("consolas"), command = self.read_data)
         self.read_data_button.pack(side='left', padx=3, pady=3)
 
         # execute button
-        self.execute_button = tk.Button(self.root, text="Execute", command=self.exeDraw)
+        self.execute_button = tk.Button(self.root, text="Execute", font=("consolas"), command=self.exeDraw)
 
         # execute button
-        self.next_button = tk.Button(self.root, text="Step", command=self.stepDraw)
+        self.next_button = tk.Button(self.root, text="Step", font=("consolas"), command=self.stepDraw)
 
         # read next data button
-        self.read_next_data_button = tk.Button(self.root, text="Read Next Data", command=self.read_next_data)
+        self.read_next_data_button = tk.Button(self.root, text="Next Data", font=("consolas"), command=self.read_next_data)
+
+        self.position_label = tk.Label(text="", font=("consolas"))
+        self.position_label.pack(side='right', pady=3)
 
         # binding mouse click to draw points
+        self.canvas.bind("<Motion>", self.update_position)
         self.canvas.bind("<Button-1>", self.draw_point_event)
 
     def draw_point_event(self, event):
@@ -66,7 +70,15 @@ class Voronoi:
 
     def draw_point(self, x, y, color='red'):
         self.canvas.create_oval(x - r, y - r, x + r, y + r, fill=color)
-        self.canvas.create_text(x+15, y+15, text=f"({int(x)},{int(y)})", anchor="w", font=("Arial", 10))
+        bx,by = 15,15
+        if y < 300 and x>300:
+            bx = -60
+        elif y > 300 and x<300:
+            by = -15
+        elif y > 300 and x>300:
+            bx,by = -60,-15
+        self.canvas.create_text(x+bx, y+by, text=f"({int(x)},{int(y)})", anchor="w", font=("consolas", 8))
+        
     
     def clear_canvas(self):
         self.canvas.delete("all")
@@ -91,8 +103,10 @@ class Voronoi:
         n = int(self.data[self.data_index])
         if n == 0:
             print('讀入點數為零，檔案測試停止')
-            self.read_data_button.pack()
+            self.read_data_button.pack(side='left', padx=3, pady=3)
             self.read_next_data_button.pack_forget()
+            self.execute_button.pack_forget()
+            self.next_button.pack_forget()
             return
 
         print(f'點數：{n}')
@@ -151,4 +165,7 @@ class Voronoi:
         self.canvas.delete("all")
         for p in self.points:
             self.draw_point(p[0], p[1])
-        
+    
+    def update_position(self, event):
+        x, y = event.x, event.y
+        self.position_label.config(text=f"Cursor : ({x}, {y})")
