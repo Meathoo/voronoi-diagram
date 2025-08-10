@@ -1,15 +1,13 @@
 from line import *
 from drawline import *
+# from convexhull import *
 import copy
-
-# 任何使用到線上兩點使用y座標排序的接錯誤，不一定y值大的就是所求，向量均為順時針轉向者才正確
 
 history_lines = []
 
 def sol(points : list, pointNum: int, canvas):
     if pointNum > 3:
         pointsL, pointsR = divide(points, pointNum)
-        print("Left: ", pointsL, "\nRight: ", pointsR)
         linesL, _ = sol(pointsL, len(pointsL), canvas)
         linesR, _ = sol(pointsR, len(pointsR), canvas)
         # draw_lines(linesL+linesR,canvas)
@@ -51,25 +49,24 @@ def merge(pointsL : list, pointsR : list, linesL, linesR, canvas):
     history_linesIdx = []
     # pointsL,pointsR = sorted(pointsL, key=lambda p:p[1]),sorted(pointsR, key=lambda p:p[1])
     lines = linesL+linesR
-    for line in lines:
-        print(line.canvasLine)
+    # for line in lines:
+    #     print(line.canvasLine)
+    print("\npointsL：",pointsL,"\npointsR：",pointsR,'\n')
+
     lp, rp = findTangent(pointsL, pointsR, isUpper=1) #  [(x,y),(x,y)]
     llp, lrp = findTangent(pointsL, pointsR, isUpper=0)
-    LowerTengentLine = Line(llp,lrp, isHyper=1)
+    LowerTengentLine = Line(llp, lrp, isHyper=1)
 
     # 有時不處理下切線會正確，但有時必須處理，而多處理下切線也不會造成錯誤，如講義範例
     # 若一邊畫hyperplane一邊消中垂的話需要找到下個hyperplane的終點，目前找不到方法可以判斷下個走向，特別是hyperplane直角轉彎的時候，應該沒有甚麼方法(選轉角度相同，距離相同)
 
-    print("上切線：",lp,rp,"\n下切線：",llp,lrp)
+    print("\n上切線：",lp,rp,"\n下切線：",llp,lrp,'\n')
     while 1:
         print("切線: ",lp,rp)
         hyperplaneline = Line(lp,rp,isHyper=True)
         history_hyperplane.append(hyperplaneline)
         pairs = getIntersections(hyperplaneline, lines, history_linesIdx, history_intersection) # [((x,y),idx),((x,y),idx), ...]
-        for (x,y),i in pairs:
-            print("可能的交點：", (x,y))
         if len(pairs)==0 or (lp == llp and rp == lrp) : # 若提早遇到沒交點 必差下切線 下切線也不會有跟其他中垂線的交點
-            print("沒有交點了，處理下切線")
             reviseLineByKnown2Points(LowerTengentLine,a=history_intersection[-1],b=LowerTengentLine.canvasLine[1])
             hyperplane_result.append(LowerTengentLine)
             history_lines.append(copy.deepcopy(lines)+copy.deepcopy(hyperplane_result))
@@ -99,33 +96,29 @@ def merge(pointsL : list, pointsR : list, linesL, linesR, canvas):
         reviseHyperLine(hyperplaneline, history_intersection) # revise hyperplane
         hyperplane_result.append(hyperplaneline)
         history_lines.append(copy.deepcopy(lines)+copy.deepcopy(hyperplane_result)) # add the line to history
-        # draw_lines(lines+hyperplane_result, canvas) # 畫出hyperplane
-    # 消線
+        draw_lines(lines+hyperplane_result, canvas) # 畫出hyperplane
+
+    # 消中垂線
     i = 0 # hyper id
     print("length lines :", len(lines),", length history_hyperplane :", len(history_linesIdx))
+    CircumcenterSet = set()
     for idx in history_linesIdx:
-        # if i+1 >= len(history_hyperplane) :
-        #     print("MAMBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-        #     
-        #     history_lines.append(copy.deepcopy(lines)+copy.deepcopy(hyperplane_result))
-        #     break
         print("兩點",lines[idx].points,"的中垂線\ni =",i)
         print("hyper1起點:",history_hyperplane[i].canvasLine[0],", hyper2終點:",history_hyperplane[i+1].canvasLine[1])
-        reviseCanvasLine(lines[idx], history_hyperplane[i].canvasLine[0], history_intersection[i],  history_hyperplane[i+1].canvasLine[1])
-        history_lines.append(copy.deepcopy(lines)+copy.deepcopy(hyperplane_result))
+        CircumcenterSet.add(reviseCanvasLine(lines[idx], history_hyperplane[i].canvasLine[0], history_intersection[i],  history_hyperplane[i+1].canvasLine[1]))
         i+=1
-
-    # not sure ----------------------------------------------------------------------------
-    # for i, line in enumerate(lines):
-    #     print("兩點",line.points,"line.hasCut",line.hasCut,"line.isHyper",line.isHyper)
-    #     if (line.hasCut == False) and (line.isHyper == False):
-    #         print("Someone got POP")
-    #         lines.pop(i) 
-        # line.isHyper = False  # not sure ----------------------------------------------------------------------------
-    # history_lines.append(copy.deepcopy(lines)+ copy.deepcopy(hyperplane_result)) 
-
-    return lines + hyperplane_result
-
+    # 消除同外心的其他中垂線
+    for circumcenter in CircumcenterSet:  
+        erase2CircumcenterLines(lines, circumcenter, hyperplane_result) 
+    history_lines.append(copy.deepcopy(lines)+copy.deepcopy(hyperplane_result))
+    # reset
+    all_lines = lines+hyperplane_result
+    for line in all_lines:
+        line.isHyper = False
+        line.afterMerge = True
+        line.remain = False
+    history_lines.append(copy.deepcopy(all_lines))
+    return all_lines
 
 def findTangent(pointsL : list, pointsR : list, isUpper = 1):
     LPoints = Line(pointsL[0], pointsL[1]) if len(pointsL) == 2 else ThreePoints(pointsL[0], pointsL[1], pointsL[2])
@@ -136,6 +129,7 @@ def findTangent(pointsL : list, pointsR : list, isUpper = 1):
         LClk, RClk = LPoints.points[::-1], RPoints.points[:] #下切線 ： 左順時針,右逆時針
 
     lp, rp = pointsL[-1], pointsR[0] # 左半最右 右半最左點
+    print(lp,rp,"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     while 1:
         lp_cpy, rp_cpy = lp, rp
         new_lp = nextElement(LClk, lp)
@@ -145,9 +139,6 @@ def findTangent(pointsL : list, pointsR : list, isUpper = 1):
         if lp_cpy == lp and rp_cpy == rp:
             break
     return [lp,rp]
-
-def nextElement(li, cur):
-    return li[(li.index(cur)+1) % len(li)]
 
 def cal_crossprod(a, b, c): #Vab to Vac
     # vector A => AB = b - a
@@ -169,6 +160,9 @@ def isClockwise(a, b, c):
         return 0
     else:
         return -1 #共線（角度為0或180度）
+
+def nextElement(li, cur):
+    return li[(li.index(cur)+1) % len(li)]
     
 def chooseEndPoint(p1, p2, p3, p4):
     cross1 = cal_crossprod(p1, p2, p3)
@@ -237,7 +231,9 @@ def getIntersections(line1 : Line, lines: list[Line], history_linesIdx, history_
         p2, m2 = line.center, line.verticalSlope
         x, y = getIntersection(p1,m1,p2,m2)
         
-        if len(history_intersection)>0 and y < history_intersection[-1][1]: # hyperplane 是一路往下
+        if len(history_intersection)>0 and (y < history_intersection[-1][1] and not isSameValue(y,history_intersection[-1][1])): # hyperplane 是一路往下
+            print("本次交點 y value", y,"\n上一次交點 y value",history_intersection[-1][1])
+            print("isSame",isSameValue(y,history_intersection[-1][1]))
             print("在前交點上方")
             continue
 
@@ -267,13 +263,13 @@ def getIntersection(p1, m1, p2, m2):
     y = m1 * (x - p1[0]) + p1[1]
     return (x, y)
 
-def isSamePoint(p1,p2):
+def isSameValue(v1,v2):
     thres = 0.1
+    return 1 if abs(v1-v2)<thres and abs(v1-v2)<thres else 0
+
+def isSamePoint(p1,p2):
     x1,y1,x2,y2 = p1[0],p1[1],p2[0],p2[1]
-    if abs(x1-x2)<thres and abs(y1-y2)<thres:
-        print("太靠近先前交點")
-        return 1
-    return 0
+    return 1 if isSameValue(x1,x2) and isSameValue(y1,y2) else 0
 
 def on_segment(p, seg):
     (x, y) = p
@@ -305,12 +301,28 @@ def reviseCanvasLine(line, hyper1point_upper, intersection, hyper2point_lower):
     cross_hyper = isClockwise(hyper1point_upper, intersection, hyper2point_lower) # v1(upper point to intersection), v2(intersection to lower point)
     cross_upper_border1 = isClockwise(hyper1point_upper,intersection,line.canvasLine[0])
     cross_upper_border2 = isClockwise(hyper1point_upper,intersection,line.canvasLine[1])
-    print("H1->H2方向:",cross_hyper)
-    print(f"H1->{line.canvasLine[0]}方向:", cross_upper_border1)
-    print(f"H1->{line.canvasLine[1]}方向:", cross_upper_border2)
+    # print("H1->H2方向:",cross_hyper)
+    # print(f"H1->{line.canvasLine[0]}方向:", cross_upper_border1)
+    # print(f"H1->{line.canvasLine[1]}方向:", cross_upper_border2)
     if cross_hyper == cross_upper_border1:
         line.canvasLine = sorted([intersection, line.canvasLine[1]], key=lambda p: p[1])
     elif cross_hyper == cross_upper_border2:
         line.canvasLine = sorted([intersection, line.canvasLine[0]], key=lambda p: p[1])
-    line.hasCut = True
-    return
+    circumcenterChange = True if line.circumcenter not in line.canvasLine else False      # 外心換過的三星系統需多消沒跟hyper交點的線 I dont know why current case showed that
+    line.remain = True
+    return line.circumcenter if circumcenterChange else None
+
+def erase2CircumcenterLines(lines, containCircumcenter, history_hyperplane):
+    threePts = set()
+    for i,line in enumerate(lines):
+        if (containCircumcenter == line.circumcenter) and (containCircumcenter in line.canvasLine) and (not line.remain):
+            if not hasHyperIntersection(line, history_hyperplane):
+                line.erase = True
+
+def hasHyperIntersection(line, hyperplane_result):
+    for hyper in hyperplane_result:
+        p1,m1,p2,m2 = line.center,line.verticalSlope,hyper.center,hyper.verticalSlope
+        intersection = getIntersection(p1,m1,p2,m2)
+        if not on_segment(intersection,line.canvasLine):
+            return False
+    return True

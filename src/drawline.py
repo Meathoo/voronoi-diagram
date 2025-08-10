@@ -12,10 +12,12 @@ color_list = [
     "#9932CC", "#E9967A", "#F08080", "#66CDAA", "#8FBC8F", "#C71585"   # 更多混色
 ]
 
-def draw_line(canvas, p1, p2, isHyper):
+def draw_line(canvas, p1, p2, line):
+    if line.erase:
+        return
     global color_idx
-    w =  4 if isHyper else 2
-    color = "black" if isHyper else color_list[color_idx % len(color_list)]
+    w =  4 if line.isHyper else 2
+    color = "black" if line.isHyper or line.afterMerge else color_list[color_idx % len(color_list)]
     canvas.create_line(p1[0], p1[1], p2[0], p2[1], width=w, fill=color)
     color_idx += 1
 
@@ -27,4 +29,5 @@ def draw_lines(lines: list[list[Line]], canvas):
         #     line = line[0]
         p1,p2 = line.canvasLine
         # print("輸出線段: ",p1,p2)
-        draw_line(canvas, p1, p2, line.isHyper)
+
+        draw_line(canvas, p1, p2, line)

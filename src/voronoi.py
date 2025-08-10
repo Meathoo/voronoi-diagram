@@ -144,15 +144,14 @@ class Voronoi:
             self.clear_lines()
             self.history.clear()
             self.history = self.execute()
-            print("history: ", self.history)
             if self.history == []:
                 return
             self.stepMode = True
             self.history_t = 0
             print(len(self.history))
         else:
-            for line in self.history[self.history_t]: # clear the old lines if the hyperplane exist
-                if line.isHyper:
+            for line in self.history[self.history_t]: # clear the old lines if hyperplane exist or it has been merged
+                if line.isHyper or line.afterMerge:
                     self.clear_lines()
                     break
 

@@ -21,7 +21,10 @@ class Line:
         self.canvasLine = self.findRay2Points()  #  #self.find_border_points()  # [(x,y),(x,y)]
 
         self.isHyper = isHyper
-        self.hasCut = False 
+        self.afterMerge = False
+        # for circumcenter erase 2 lines situation
+        self.erase = False 
+        self.remain = False
         self.circumcenter = circumcenter
 
     def cal_slope(self):
