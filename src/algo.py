@@ -1,30 +1,34 @@
 from line import *
 from drawline import *
-# from convexhull import *
 import copy
 
 history_lines = []
+history_cvhlines = []
 
-def sol(points : list, pointNum: int, canvas):
+def sol(points : list, pointNum: int, canvas, Lpart = None):
     if pointNum > 3:
         pointsL, pointsR = divide(points, pointNum)
-        linesL, _ = sol(pointsL, len(pointsL), canvas)
-        linesR, _ = sol(pointsR, len(pointsR), canvas)
+        linesL, cvhL, _, _ = sol(pointsL, len(pointsL), canvas, Lpart=True)
+        linesR, cvhR, _, _ = sol(pointsR, len(pointsR), canvas, Lpart=False)
         # draw_lines(linesL+linesR,canvas)
         # return linesL+linesR
-        return merge(pointsL, pointsR, linesL, linesR, canvas), history_lines
+        return *merge(cvhL, cvhR, linesL, linesR, canvas), history_lines, history_cvhlines
     elif pointNum == 3:
-        return solThree(ThreePoints(points[0], points[1], points[2])), history_lines
+        return *solThree(ThreePoints(points[0], points[1], points[2], Lpart=Lpart)), history_lines, history_cvhlines
     elif pointNum == 2 :
-        return solTwo(Line(points[0], points[1])), history_lines
+        return *solTwo(Line(points[0], points[1], Lpart=Lpart)), history_lines, history_cvhlines
 
-def solTwo(line : Line) -> list[Line]:
+def solTwo(line : Line):
     history_lines.append([copy.deepcopy(line)])
-    return [line]
+    return [line], line.points
 
-def solThree(threePoints : ThreePoints) -> list[Line]:
-    history_lines.append(copy.deepcopy(solveThreeParallel(threePoints)) + copy.deepcopy(solveCircumcenter(threePoints)))
-    return solveThreeParallel(threePoints) + solveCircumcenter(threePoints)
+def solThree(threePoints : ThreePoints):
+    convexHull = threePointConvexhull(threePoints.points)
+    res = solveCircumcenter(threePoints)
+    if threePoints.isThreeParallel:
+        res = res + solveThreeParallel(threePoints, convexHull)
+    history_lines.append(copy.deepcopy(res))
+    return res, convexHull
     
 def divide(points : list, pointNum: int):
     avg_x=0
@@ -42,23 +46,31 @@ def divide(points : list, pointNum: int):
     return points[:pointNum//2], points[pointNum//2:]
  
 
-def merge(pointsL : list, pointsR : list, linesL, linesR, canvas):
+def merge(cvhL : list, cvhR : list, linesL, linesR, canvas):
     hyperplane_result = []
     history_hyperplane = []
     history_intersection = []
     history_linesIdx = []
-    # pointsL,pointsR = sorted(pointsL, key=lambda p:p[1]),sorted(pointsR, key=lambda p:p[1])
+
     lines = linesL+linesR
-    # for line in lines:
-    #     print(line.canvasLine)
-    print("\npointsL：",pointsL,"\npointsR：",pointsR,'\n')
 
-    lp, rp = findTangent(pointsL, pointsR, isUpper=1) #  [(x,y),(x,y)]
-    llp, lrp = findTangent(pointsL, pointsR, isUpper=0)
+    cvhL_lines, cvhR_lines = [Line(cvhL[i], cvhL[nextIndex(i,cvhL)], isConvexHull=True) for i in range(len(cvhL))], [Line(cvhR[i], cvhR[nextIndex(i,cvhR)], isConvexHull=True) for i in range(len(cvhR))]
+    history_lines.append([])  #停留一步
+    history_cvhlines.append(copy.deepcopy(cvhL_lines))
+
+    history_lines.append([]) #停留一步
+    history_cvhlines.append(copy.deepcopy(cvhR_lines))
+
+    cvh_lines, cvh, lp, rp, llp, lrp = mergeConvexHull(cvhL, cvhR) # upperTengent: [lp,rp], lowerTengent: [llp,lrp]
+    # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!cvh", cvhL)
+    # print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!cvh", cvhR)
+    print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!cvh", cvh)
+    
+    history_lines.append(copy.deepcopy(lines))
+    history_cvhlines.append(copy.deepcopy(cvh_lines))
+    
+    
     LowerTengentLine = Line(llp, lrp, isHyper=1)
-
-    # 有時不處理下切線會正確，但有時必須處理，而多處理下切線也不會造成錯誤，如講義範例
-    # 若一邊畫hyperplane一邊消中垂的話需要找到下個hyperplane的終點，目前找不到方法可以判斷下個走向，特別是hyperplane直角轉彎的時候，應該沒有甚麼方法(選轉角度相同，距離相同)
 
     print("\n上切線：",lp,rp,"\n下切線：",llp,lrp,'\n')
     while 1:
@@ -72,6 +84,7 @@ def merge(pointsL : list, pointsR : list, linesL, linesR, canvas):
             history_lines.append(copy.deepcopy(lines)+copy.deepcopy(hyperplane_result))
             break
         pairs.sort(key= lambda pair : pair[0][1]) # sort by lower y value 原則上由上到下
+        print("可能的交點:",pairs)
         intersection, target_line, idx = pairs[0][0], lines[pairs[0][1]], pairs[0][1]
         history_intersection.append(intersection)
         print("第一優先交點:",intersection,",兩點", lines[idx].points,"的中垂線")
@@ -86,6 +99,7 @@ def merge(pointsL : list, pointsR : list, linesL, linesR, canvas):
             print("lp: ", lp)
             print("points: ", target_line.points)
             # print("XOR: ", target_line.points.index(lp)^1)
+            print(target_line.points)
             lp = target_line.points[target_line.points.index(lp)^1]
         else:
             print("rp: ", rp)
@@ -96,7 +110,7 @@ def merge(pointsL : list, pointsR : list, linesL, linesR, canvas):
         reviseHyperLine(hyperplaneline, history_intersection) # revise hyperplane
         hyperplane_result.append(hyperplaneline)
         history_lines.append(copy.deepcopy(lines)+copy.deepcopy(hyperplane_result)) # add the line to history
-        draw_lines(lines+hyperplane_result, canvas) # 畫出hyperplane
+        # draw_lines(lines+hyperplane_result, canvas) # 畫出hyperplane
 
     # 消中垂線
     i = 0 # hyper id
@@ -118,27 +132,63 @@ def merge(pointsL : list, pointsR : list, linesL, linesR, canvas):
         line.afterMerge = True
         line.remain = False
     history_lines.append(copy.deepcopy(all_lines))
-    return all_lines
 
-def findTangent(pointsL : list, pointsR : list, isUpper = 1):
-    LPoints = Line(pointsL[0], pointsL[1]) if len(pointsL) == 2 else ThreePoints(pointsL[0], pointsL[1], pointsL[2])
-    RPoints = Line(pointsR[0], pointsR[1]) if len(pointsR) == 2 else ThreePoints(pointsR[0], pointsR[1], pointsR[2])
-    
-    LClk, RClk = LPoints.points[:], RPoints.points[::-1] #上切線 ： 左逆時針,右順時針
-    if not isUpper:
-        LClk, RClk = LPoints.points[::-1], RPoints.points[:] #下切線 ： 左順時針,右逆時針
+    return all_lines, cvh
 
-    lp, rp = pointsL[-1], pointsR[0] # 左半最右 右半最左點
-    print(lp,rp,"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    while 1:
-        lp_cpy, rp_cpy = lp, rp
-        new_lp = nextElement(LClk, lp)
-        lp = new_lp if isClockwise(rp, lp, new_lp) == isUpper else lp
-        new_rp = nextElement(RClk, rp)
-        rp = new_rp if isClockwise(lp, rp, new_rp) == (isUpper^1) else rp
-        if lp_cpy == lp and rp_cpy == rp:
+def mergeConvexHull(cvhL,cvhR):
+    upL, upR = findTangent(cvhL, cvhR, isUpper=1)
+    lowL, lowR = findTangent(cvhL, cvhR, isUpper=0)
+    i_upL, i_upR, i_lowL, i_lowR = cvhL.index(upL),cvhR.index(upR),cvhL.index(lowL),cvhR.index(lowR)
+    merged_cvh = []
+
+    print("in mergeConvexHull cvhL", cvhL)
+    print("in mergeConvexHull cvhR", cvhR)
+    print("in mergeConvexHull 上切:", upL, upR)
+    print("in mergeConvexHull 下切:", lowL, lowR)
+
+    # 從 lowL (左側底) 開始，沿左側凸包逆時針到 upL（包含）
+    i = i_lowL
+    merged_cvh.append(cvhL[i])
+    while i != i_upL:
+        i = nextIndex(i,cvhL)
+        # i = len(cvhL)-1 if i-1<0 else i-1
+        merged_cvh.append(cvhL[i])
+
+    # 從 upR 開始，沿右側凸包逆時針到 lowR（包含）
+    i = i_upR
+    merged_cvh.append(cvhR[i])
+    while i != i_lowR:
+        i = nextIndex(i,cvhR)
+        # i = len(cvhR)-1 if i-1<0 else i-1
+        merged_cvh.append(cvhR[i])
+
+    upT_i, lowT_i = merged_cvh.index(upL), merged_cvh.index(lowR)
+
+    cvh_lines = [Line(merged_cvh[i], merged_cvh[nextIndex(i,merged_cvh)], isConvexHull=True, isTengent= True if i==upT_i or i==lowT_i else False) for i in range(len(merged_cvh))]
+
+    return cvh_lines, merged_cvh, upL, upR, lowL, lowR
+
+def findTangent(pointsL, pointsR, isUpper=1):
+
+    lp,rp = max(pointsL, key=lambda p: (p[0], -p[1])), min(pointsR, key=lambda p: (p[0], p[1]))
+    # print("in findtengent: ",lp,rp)
+
+    orderL = pointsL[::-1] if isUpper else pointsL[:] #上切線 ： 左逆時針,右順時針
+    orderR = pointsR[:] if isUpper else pointsR[::-1] #下切線 ： 左順時針,右逆時針
+
+    iL,iR = orderL.index(lp), orderR.index(rp)
+
+    while True:
+        moved = False
+        while isClockwise(orderR[iR], orderL[iL], orderL[nextIndex(iL,orderL)]) == isUpper:
+            iL = nextIndex(iL,orderL)
+            moved = True
+        while isClockwise(orderL[iL], orderR[iR], orderR[nextIndex(iR,orderR)]) == (isUpper ^ 1):
+            iR = nextIndex(iR,orderR)
+            moved = True
+        if not moved:
             break
-    return [lp,rp]
+    return orderL[iL], orderR[iR]
 
 def cal_crossprod(a, b, c): #Vab to Vac
     # vector A => AB = b - a
@@ -161,8 +211,8 @@ def isClockwise(a, b, c):
     else:
         return -1 #共線（角度為0或180度）
 
-def nextElement(li, cur):
-    return li[(li.index(cur)+1) % len(li)]
+def nextIndex(idx, li):
+    return (idx+1) % len(li)
     
 def chooseEndPoint(p1, p2, p3, p4):
     cross1 = cal_crossprod(p1, p2, p3)
@@ -180,20 +230,22 @@ def chooseEndPoint(p1, p2, p3, p4):
 def cal_length(p1, p2):
     return ((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2) ** 0.5
 
-def solveThreeParallel(threePoints : ThreePoints) -> list[Line]:
-    is_three_parallel = threePoints.isThreeParallel
-    result = []
-    if is_three_parallel:
-        print(f'三條線平行: {is_three_parallel}')
-        b1,b2 = threePoints.lines[0].canvasLine # because parallel
-        # ----------- not sure can use sort function or not ----------- 
-        # print("before: ", threePoints.lines)
-        sortedLines = sorted(threePoints.lines, key=lambda line: cal_length(line.center, b1))  # Sort by distance to the first border point
-        # print("after: ", sortedLines)
-        # ----------- not sure can use sort function or not -----------
-        for line in sortedLines[0::2]: # index[0],index[0+2]
-            result.append(line)
+def threePointConvexhull(li : list):
+    cross = cal_crossprod(li[0], li[1], li[2])
+    if cross == 0:
+        sorted_li = sorted(li, key=lambda p: (p[0], p[1]))
+        return [sorted_li[0], sorted_li[-1]]
+    if cross > 0:
+        return li   # already CCW
+    else:
+        return li[::-1]
 
+def solveThreeParallel(threePoints : ThreePoints, convexhull) -> list[Line]:
+    result = []
+    end1, end2 = convexhull
+    for line in threePoints.lines:
+        if (end1 in line.points) ^ (end2 in line.points):
+            result.append(line)
     return result
 
 def solveCircumcenter(threePoints : ThreePoints):
@@ -231,6 +283,9 @@ def getIntersections(line1 : Line, lines: list[Line], history_linesIdx, history_
         p2, m2 = line.center, line.verticalSlope
         x, y = getIntersection(p1,m1,p2,m2)
         
+        if line.erase:
+            continue
+
         if len(history_intersection)>0 and (y < history_intersection[-1][1] and not isSameValue(y,history_intersection[-1][1])): # hyperplane 是一路往下
             print("本次交點 y value", y,"\n上一次交點 y value",history_intersection[-1][1])
             print("isSame",isSameValue(y,history_intersection[-1][1]))
@@ -243,9 +298,6 @@ def getIntersections(line1 : Line, lines: list[Line], history_linesIdx, history_
                 print("剛處理過的點，去除")
                 continue
             
-        # if i in history_linesIdx:
-        #     print("處理過的線和點")
-        #     continue
         if (x,y) == (float('inf'),float('inf')):
             print("平行無交點")
             continue

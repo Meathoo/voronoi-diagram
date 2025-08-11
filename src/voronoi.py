@@ -27,9 +27,13 @@ class Voronoi:
         self.data = []
         self.data_index = 0
         self.waiting = False
+        self.cvh_history = None
+        self.cvh_history_t = False
         self.history = []
         self.history_t = None
         self.stepMode = False
+        self.merge_history = []
+        self.mergeidx = 0
 
         # create canvas
         self.canvas = tk.Canvas(self.root, width=600, height=600, bg="white")
@@ -97,6 +101,8 @@ class Voronoi:
         self.clear_canvas()
         self.points.clear()
         self.history.clear()
+        self.merge_history.clear()
+        self.mergeidx = 0
         self.stepMode = False
         self.execute_button.pack(side='left', padx=3)
         self.next_button.pack(side='left', padx=3, pady=3)
@@ -123,27 +129,28 @@ class Voronoi:
         pointNum = len(self.points)
         if pointNum<2:
             print('少於兩點，無法繪製Voronoi圖')
-            return []
+            return [],[]
         if has_duplicates(self.points):
             print('有兩個點重複，無法繪製Voronoi圖')
-            return []
-        lines, history = sol(self.points, pointNum, canvas=self.canvas)
-        return history
+            return [],[]
+        lines, convexhull, history, cvh_history= sol(self.points, pointNum, canvas=self.canvas)
+        return history, cvh_history
     
     def exeDraw(self):
         if not self.stepMode:
-            self.history = self.execute()
+            self.history, self.cvh_history = self.execute()
             if self.history == []:
                 return
             self.stepMode = True
         self.history_t = len(self.history)-1
+        self.cvh_history_t = len(self.cvh_history)-1
         self.stepDraw()
 
     def stepDraw(self):
         if not self.stepMode:
             self.clear_lines()
             self.history.clear()
-            self.history = self.execute()
+            self.history, self.cvh_history = self.execute()
             if self.history == []:
                 return
             self.stepMode = True
@@ -151,11 +158,25 @@ class Voronoi:
             print(len(self.history))
         else:
             for line in self.history[self.history_t]: # clear the old lines if hyperplane exist or it has been merged
-                if line.isHyper or line.afterMerge:
+                if line.afterMerge:
+                    self.merge_history.append((self.merge_history[-1] if self.merge_history else []) + self.history[self.history_t]) # backup merge subgraph
+                if line.isHyper:
                     self.clear_lines()
+                    if len(self.merge_history):
+                        draw_lines(self.merge_history[-1], self.canvas)
                     break
+        
+        if (self.cvh_history_t+1) % 3 == 0:
+            self.clear_lines()
+            if len(self.merge_history):
+                draw_lines(self.merge_history[-1], self.canvas)
+
+        if len(self.points)>3 and (self.cvh_history_t+1) %3 == 0 or len(self.history[self.history_t]) == 0:
+            draw_lines(self.cvh_history[self.cvh_history_t], self.canvas)
+            self.cvh_history_t += 1
 
         draw_lines(self.history[self.history_t], self.canvas)
+
         self.history_t +=1
         if self.history_t >= len(self.history):
             self.stepMode = False

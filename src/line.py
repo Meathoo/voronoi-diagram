@@ -1,7 +1,7 @@
 import math
 
 class Line:
-    def __init__(self, p1, p2, circumcenter=None, isHyper=False):
+    def __init__(self, p1, p2, circumcenter=None, isHyper=False, isConvexHull=False, isTengent=False, Lpart=None):
         self.p1 = p1
         self.p2 = p2
         self.points = [p1, p2]
@@ -20,13 +20,16 @@ class Line:
 
         self.canvasLine = self.findRay2Points()  #  #self.find_border_points()  # [(x,y),(x,y)]
 
+        self.Lpart = Lpart
         self.isHyper = isHyper
+        self.isConvexHull = isConvexHull
+        self.isTengent = isTengent
         self.afterMerge = False
         # for circumcenter erase 2 lines situation
         self.erase = False 
         self.remain = False
         self.circumcenter = circumcenter
-
+        
     def cal_slope(self):
         if self.p1[0] == self.p2[0]:  # vertical line
             return float('inf')
@@ -54,11 +57,11 @@ class Line:
         return sorted([p1,p2], key=lambda p : p[1])
     
 class ThreePoints():
-    def __init__(self, p1, p2, p3):
+    def __init__(self, p1, p2, p3, Lpart=None):
         self.points = [p1,p2,p3]
         self.center_of_all = ((p1[0] + p2[0] + p3[0]) / 3, (p1[1] + p2[1] + p3[1]) / 3)
         sort_counterclockwise(self.points, self.center_of_all)
-        self.lines = [Line(self.points[0], self.points[1]), Line(self.points[1], self.points[2]), Line(self.points[2], self.points[0])]
+        self.lines = [Line(self.points[0], self.points[1], Lpart=Lpart), Line(self.points[1], self.points[2], Lpart=Lpart), Line(self.points[2], self.points[0], Lpart=Lpart)]
         self.isThreeParallel = True if self.lines[0].slope == self.lines[1].slope and self.lines[1].slope == self.lines[2].slope else False
         if not self.isThreeParallel:
             self.circumcenter = self.findCircumcenter(self.lines)
