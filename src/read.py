@@ -1,6 +1,6 @@
 def readInput():
     try:
-        with open('../testcase/testcase12.in', 'r',encoding="utf-8") as file:
+        with open('../testcase/vd_testcase.in', 'r',encoding="utf-8") as file:
             data = file.readlines()
             li = [line.strip() for line in data if (line[0] != '#' and line != '\n')]
             return li

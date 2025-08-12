@@ -68,8 +68,7 @@ def merge(cvhL : list, cvhR : list, linesL, linesR, canvas):
     
     history_lines.append(copy.deepcopy(lines))
     history_cvhlines.append(copy.deepcopy(cvh_lines))
-    
-    
+
     LowerTengentLine = Line(llp, lrp, isHyper=1)
 
     print("\n上切線：",lp,rp,"\n下切線：",llp,lrp,'\n')
@@ -112,18 +111,18 @@ def merge(cvhL : list, cvhR : list, linesL, linesR, canvas):
         history_lines.append(copy.deepcopy(lines)+copy.deepcopy(hyperplane_result)) # add the line to history
         # draw_lines(lines+hyperplane_result, canvas) # 畫出hyperplane
 
+
+    hascutBorder = []
     # 消中垂線
     i = 0 # hyper id
-    print("length lines :", len(lines),", length history_hyperplane :", len(history_linesIdx))
-    CircumcenterSet = set()
     for idx in history_linesIdx:
         print("兩點",lines[idx].points,"的中垂線\ni =",i)
         print("hyper1起點:",history_hyperplane[i].canvasLine[0],", hyper2終點:",history_hyperplane[i+1].canvasLine[1])
-        CircumcenterSet.add(reviseCanvasLine(lines[idx], history_hyperplane[i].canvasLine[0], history_intersection[i],  history_hyperplane[i+1].canvasLine[1]))
+        hascutBorder.append(reviseCanvasLine(lines, idx, history_hyperplane[i].canvasLine[0], history_intersection[i],  history_hyperplane[i+1].canvasLine[1]))
         i+=1
-    # 消除同外心的其他中垂線
-    for circumcenter in CircumcenterSet:  
-        erase2CircumcenterLines(lines, circumcenter, hyperplane_result) 
+    for p in hascutBorder:
+        deepErase(p,lines)
+        
     history_lines.append(copy.deepcopy(lines)+copy.deepcopy(hyperplane_result))
     # reset
     all_lines = lines+hyperplane_result
@@ -141,10 +140,10 @@ def mergeConvexHull(cvhL,cvhR):
     i_upL, i_upR, i_lowL, i_lowR = cvhL.index(upL),cvhR.index(upR),cvhL.index(lowL),cvhR.index(lowR)
     merged_cvh = []
 
-    print("in mergeConvexHull cvhL", cvhL)
-    print("in mergeConvexHull cvhR", cvhR)
-    print("in mergeConvexHull 上切:", upL, upR)
-    print("in mergeConvexHull 下切:", lowL, lowR)
+    # print("in mergeConvexHull cvhL", cvhL)
+    # print("in mergeConvexHull cvhR", cvhR)
+    # print("in mergeConvexHull 上切:", upL, upR)
+    # print("in mergeConvexHull 下切:", lowL, lowR)
 
     # 從 lowL (左側底) 開始，沿左側凸包逆時針到 upL（包含）
     i = i_lowL
@@ -348,33 +347,33 @@ def reviseHyperLine(line, history_intersection):
         reviseLineByKnown2Points(line,a=history_intersection[-2],b=history_intersection[-1])
     return
 
-def reviseCanvasLine(line, hyper1point_upper, intersection, hyper2point_lower):
+def reviseCanvasLine(lines, i, hyper1point_upper, intersection, hyper2point_lower):
     # 若hyperplane轉向 與 向邊界點轉向相同 則該方向須去除(改成交點與另一側邊界連線)
     cross_hyper = isClockwise(hyper1point_upper, intersection, hyper2point_lower) # v1(upper point to intersection), v2(intersection to lower point)
-    cross_upper_border1 = isClockwise(hyper1point_upper,intersection,line.canvasLine[0])
-    cross_upper_border2 = isClockwise(hyper1point_upper,intersection,line.canvasLine[1])
+    cross_upper_border1 = isClockwise(hyper1point_upper,intersection,lines[i].canvasLine[0])
+    cross_upper_border2 = isClockwise(hyper1point_upper,intersection,lines[i].canvasLine[1])
     # print("H1->H2方向:",cross_hyper)
     # print(f"H1->{line.canvasLine[0]}方向:", cross_upper_border1)
     # print(f"H1->{line.canvasLine[1]}方向:", cross_upper_border2)
+    # cpy = set(line.canvasLine[:])
+    # print("Before Cut:", cpy)
+    cpy = lines[i].canvasLine[:]
     if cross_hyper == cross_upper_border1:
-        line.canvasLine = sorted([intersection, line.canvasLine[1]], key=lambda p: p[1])
+        lines[i].canvasLine = [intersection, lines[i].canvasLine[1]]
+        otherSide = cpy[0]
     elif cross_hyper == cross_upper_border2:
-        line.canvasLine = sorted([intersection, line.canvasLine[0]], key=lambda p: p[1])
-    circumcenterChange = True if line.circumcenter not in line.canvasLine else False      # 外心換過的三星系統需多消沒跟hyper交點的線 I dont know why current case showed that
-    line.remain = True
-    return line.circumcenter if circumcenterChange else None
+        lines[i].canvasLine = [intersection, lines[i].canvasLine[0]]
+        otherSide = cpy[1]
 
-def erase2CircumcenterLines(lines, containCircumcenter, history_hyperplane):
-    threePts = set()
-    for i,line in enumerate(lines):
-        if (containCircumcenter == line.circumcenter) and (containCircumcenter in line.canvasLine) and (not line.remain):
-            if not hasHyperIntersection(line, history_hyperplane):
-                line.erase = True
+    lines[i].remain = True
+    return otherSide
 
-def hasHyperIntersection(line, hyperplane_result):
-    for hyper in hyperplane_result:
-        p1,m1,p2,m2 = line.center,line.verticalSlope,hyper.center,hyper.verticalSlope
-        intersection = getIntersection(p1,m1,p2,m2)
-        if not on_segment(intersection,line.canvasLine):
-            return False
-    return True
+def deepErase(cutPoint, lines):
+    for l in lines:
+        if cutPoint in l.canvasLine:
+            if l.erase or l.remain:
+                continue
+            l.erase = True
+            # print("next Cut point:", l.canvasLine[l.canvasLine.index(cutPoint)^1])
+            deepErase(l.canvasLine[l.canvasLine.index(cutPoint)^1], lines)
+    return

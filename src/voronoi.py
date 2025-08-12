@@ -27,7 +27,7 @@ class Voronoi:
         self.data = []
         self.data_index = 0
         self.waiting = False
-        self.cvh_history = None
+        self.cvh_history = []
         self.cvh_history_t = False
         self.history = []
         self.history_t = None
@@ -36,7 +36,7 @@ class Voronoi:
         self.mergeidx = 0
 
         # create canvas
-        self.canvas = tk.Canvas(self.root, width=600, height=600, bg="white")
+        self.canvas = tk.Canvas(self.root, width=1000, height=1000, bg="white")
         self.canvas.pack()
 
         # clear button
@@ -103,6 +103,8 @@ class Voronoi:
         self.history.clear()
         self.merge_history.clear()
         self.mergeidx = 0
+        self.cvh_history.clear()
+        self.cvh_history_t = 0
         self.stepMode = False
         self.execute_button.pack(side='left', padx=3)
         self.next_button.pack(side='left', padx=3, pady=3)
@@ -134,6 +136,8 @@ class Voronoi:
             print('有兩個點重複，無法繪製Voronoi圖')
             return [],[]
         lines, convexhull, history, cvh_history= sol(self.points, pointNum, canvas=self.canvas)
+        self.cvhLastIdx = len(cvh_history)-1
+        print("cvh_history length:",len(cvh_history))
         return history, cvh_history
     
     def exeDraw(self):
@@ -150,6 +154,10 @@ class Voronoi:
         if not self.stepMode:
             self.clear_lines()
             self.history.clear()
+            self.cvh_history.clear()
+            self.cvh_history_t = 0
+            self.merge_history.clear()
+            self.mergeidx = 0
             self.history, self.cvh_history = self.execute()
             if self.history == []:
                 return
@@ -162,13 +170,13 @@ class Voronoi:
                     self.merge_history.append((self.merge_history[-1] if self.merge_history else []) + self.history[self.history_t]) # backup merge subgraph
                 if line.isHyper:
                     self.clear_lines()
-                    if len(self.merge_history):
+                    if len(self.merge_history) and (not self.cvh_history_t >= self.cvhLastIdx):
                         draw_lines(self.merge_history[-1], self.canvas)
                     break
         
         if (self.cvh_history_t+1) % 3 == 0:
             self.clear_lines()
-            if len(self.merge_history):
+            if len(self.merge_history) and (not self.cvh_history_t >= self.cvhLastIdx):
                 draw_lines(self.merge_history[-1], self.canvas)
 
         if len(self.points)>3 and (self.cvh_history_t+1) %3 == 0 or len(self.history[self.history_t]) == 0:
