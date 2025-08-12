@@ -10,6 +10,7 @@ def sol(points : list, pointNum: int, canvas, Lpart = None):
         pointsL, pointsR = divide(points, pointNum)
         linesL, cvhL, _, _ = sol(pointsL, len(pointsL), canvas, Lpart=True)
         linesR, cvhR, _, _ = sol(pointsR, len(pointsR), canvas, Lpart=False)
+        print("LR: ",pointsL, pointsR)
         # draw_lines(linesL+linesR,canvas)
         # return linesL+linesR
         return *merge(cvhL, cvhR, linesL, linesR, canvas), history_lines, history_cvhlines
@@ -140,10 +141,10 @@ def mergeConvexHull(cvhL,cvhR):
     i_upL, i_upR, i_lowL, i_lowR = cvhL.index(upL),cvhR.index(upR),cvhL.index(lowL),cvhR.index(lowR)
     merged_cvh = []
 
-    # print("in mergeConvexHull cvhL", cvhL)
-    # print("in mergeConvexHull cvhR", cvhR)
-    # print("in mergeConvexHull 上切:", upL, upR)
-    # print("in mergeConvexHull 下切:", lowL, lowR)
+    print("in mergeConvexHull cvhL", cvhL)
+    print("in mergeConvexHull cvhR", cvhR)
+    print("in mergeConvexHull 上切:", upL, upR)
+    print("in mergeConvexHull 下切:", lowL, lowR)
 
     # 從 lowL (左側底) 開始，沿左側凸包逆時針到 upL（包含）
     i = i_lowL
@@ -260,9 +261,10 @@ def solveCircumcenter(threePoints : ThreePoints):
 def cut(threePoints : ThreePoints, circumcenter) -> list[Line]:
     result = []
     vertiVectors = threePoints.vertiVectors
-    d = 120
+    d = 8999999 # extend length
     for i in range(len(vertiVectors)):
         v = vertiVectors[i]
+        # extend_point = (x + d * vectorX, y + d * vectorY)
         p = (circumcenter[0] + d * v[0], circumcenter[1] + d * v[1])
         # canvas.create_oval(p1[0] - 3, p1[1] - 3, p1[0] + 3, p1[1] + 3, fill='black')
         # canvas.create_oval(p2[0] - 3, p2[1] - 3, p2[0] + 3, p2[1] + 3, fill='black')

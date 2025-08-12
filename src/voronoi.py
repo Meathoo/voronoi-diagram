@@ -36,7 +36,7 @@ class Voronoi:
         self.mergeidx = 0
 
         # create canvas
-        self.canvas = tk.Canvas(self.root, width=1000, height=1000, bg="white")
+        self.canvas = tk.Canvas(self.root, width=600, height=600, bg="white")
         self.canvas.pack()
 
         # clear button

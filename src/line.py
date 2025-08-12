@@ -50,7 +50,7 @@ class Line:
         return sorted(list(legal_points), key=lambda p : p[1])
     
     def findRay2Points(self):
-        d = 50
+        d = 100
         # print(f'移動量 x: {d * unit_v[0]}, y: {d * unit_v[1]}')
         v = self.vertiVectors
         p1,p2 = (self.center[0] + d * v[0], self.center[1] + d * v[1]), (self.center[0] - d * v[0], self.center[1] - d * v[1])
